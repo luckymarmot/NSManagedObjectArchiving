@@ -1,11 +1,15 @@
 #import <Foundation/Foundation.h>
 
+typedef BOOL (^NSManagedObjectArchivingBlock)(NSManagedObject* object, NSString* key);
+
 @interface NSManagedObjectArchiver : NSObject
 
 /*
  * Takes a NSManagedObject and converts it to a NSData archive - it traverses all relationships ( including circular ) and archives it
  */
 + (NSData *)archivedDataWithRootObject:(NSManagedObject *)pObject;
+
++ (NSData *)archivedDataWithRootObject:(NSManagedObject *)pObject block:(NSManagedObjectArchivingBlock)block;
 
 @end
 

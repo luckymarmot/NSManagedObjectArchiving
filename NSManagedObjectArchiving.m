@@ -6,8 +6,8 @@
 @property (nonatomic, strong) NSString *rootObjectIdentifier;
 
 - (id)identifierForObject:(NSManagedObject *)pObject;
-- (id)propertyListForObject:(NSManagedObject *)pObject;
-- (id)propertyListForRelationshipWithName:(NSString *)pRelationshipName inObject:(NSManagedObject *)pObject;
+- (id)propertyListForObject:(NSManagedObject *)pObject block:(NSManagedObjectArchivingBlock)block;
+- (id)propertyListForRelationshipWithName:(NSString *)pRelationshipName inObject:(NSManagedObject *)pObject block:(NSManagedObjectArchivingBlock)block;
 
 @end
 
@@ -20,10 +20,15 @@
 
 #pragma mark - Initialization
 
-+ (NSData *)archivedDataWithRootObject:(NSManagedObject *)pRootObject {
++ (NSData *)archivedDataWithRootObject:(NSManagedObject *)pObject
+{
+	return [self archivedDataWithRootObject:pObject block:NULL];
+}
+
++ (NSData *)archivedDataWithRootObject:(NSManagedObject *)pRootObject block:(NSManagedObjectArchivingBlock)block {
 	NSManagedObjectArchiver *archiver = [[self alloc] init];
 	archiver.rootObjectIdentifier = [archiver identifierForObject:pRootObject];
-	[archiver propertyListForObject:pRootObject];
+	[archiver propertyListForObject:pRootObject block:block];
 	return [NSKeyedArchiver archivedDataWithRootObject:[NSDictionary dictionaryWithObjectsAndKeys:
 														archiver.objects, @"objects",
 														archiver.rootObjectIdentifier, @"rootObjectIdentifier",
@@ -44,7 +49,7 @@
 	}
 	return pObject.objectID.URIRepresentation.absoluteString;
 }
-- (id)propertyListForObject:(NSManagedObject *)pObject {
+- (id)propertyListForObject:(NSManagedObject *)pObject block:(NSManagedObjectArchivingBlock)block {
 	if(pObject == nil) {
 		return [NSNull null];
 	}
@@ -59,7 +64,15 @@
 	[propertyList setObject:entityDescription.name forKey:@"entityName"];
 	[propertyList setObject:entityDescription.versionHash forKey:@"entityVersionHash"];
 	[propertyList setObject:identifier forKey:@"identifier"];
-	[propertyList setObject:[pObject dictionaryWithValuesForKeys:entityDescription.attributeKeys] forKey:@"attributes"];
+	
+	NSDictionary* attributesOriginal = [pObject dictionaryWithValuesForKeys:entityDescription.attributeKeys];
+	NSMutableDictionary* attributes = [NSMutableDictionary dictionaryWithCapacity:[attributesOriginal count]];
+	[attributesOriginal enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+		if (!block || block(pObject, key)) {
+			[attributes setObject:obj forKey:key];
+		}
+	}];
+	[propertyList setObject:attributes forKey:@"attributes"];
 	
 	[self.objects setObject:propertyList forKey:identifier];
 	
@@ -67,13 +80,15 @@
 	[propertyList setObject:propertyListRelationships forKey:@"relationships"];
 	
 	for(NSString *relationshipName in entityDescription.relationshipsByName) {
-		[propertyListRelationships setObject:[self propertyListForRelationshipWithName:relationshipName inObject:pObject]
-									  forKey:relationshipName];
+		if (!block || block(pObject, relationshipName)) {
+			[propertyListRelationships setObject:[self propertyListForRelationshipWithName:relationshipName inObject:pObject block:block]
+										  forKey:relationshipName];
+		}
 	}
 	
 	return propertyList;
 }
-- (id)propertyListForRelationshipWithName:(NSString *)pRelationshipName inObject:(NSManagedObject *)pObject {
+- (id)propertyListForRelationshipWithName:(NSString *)pRelationshipName inObject:(NSManagedObject *)pObject block:(NSManagedObjectArchivingBlock)block {
 	NSRelationshipDescription *relationshipDescription = [pObject.entity.relationshipsByName objectForKey:pRelationshipName];
 	
 	if(relationshipDescription.isToMany) {
@@ -86,13 +101,13 @@
 		}
 		for(NSManagedObject *object in src) {
 			NSString *identifier = [self identifierForObject:object];
-			[self propertyListForObject:object];
+			[self propertyListForObject:object block:block];
 			[dst addObject:identifier];
 		}
 		return ([dst count] > 0) ? dst : [NSNull null];
 	} else {
 		NSString *identifier = [self identifierForObject:[pObject valueForKey:pRelationshipName]];
-		[self propertyListForObject:[pObject valueForKey:pRelationshipName]];
+		[self propertyListForObject:[pObject valueForKey:pRelationshipName] block:block];
 		return identifier;
 	}
 }
