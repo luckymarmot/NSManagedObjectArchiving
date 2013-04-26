@@ -39,6 +39,6 @@ typedef BOOL (^NSManagedObjectArchivingBlock)(NSManagedObject* object, NSString*
  * @param NSManagedObjectContext *context - required - provided context is used to obtain NSEntityDescriptions from.
  * @param BOOL insert - whether or not objects should be inserted into the provided context when created, if choose not to insert them you would need to insert them manually ( including relationships ) before they can be saved
  */
-- (id)copyIncludingRelationshipsUsingContext:(NSManagedObjectContext *)pContext insert:(BOOL)pInsert;
+- (id)copyIncludingRelationshipsUsingContext:(NSManagedObjectContext *)pContext insert:(BOOL)pInsert block:(NSManagedObjectArchivingBlock)block;
 
 @end

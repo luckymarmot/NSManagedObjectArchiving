@@ -235,8 +235,8 @@
 	[copy setValuesForKeysWithDictionary:[self dictionaryWithValuesForKeys:self.entity.attributeKeys]];
 	return copy;
 }
-- (id)copyIncludingRelationshipsUsingContext:(NSManagedObjectContext *)pContext insert:(BOOL)pInsert {
-	NSData *d = [NSManagedObjectArchiver archivedDataWithRootObject:self];
+- (id)copyIncludingRelationshipsUsingContext:(NSManagedObjectContext *)pContext insert:(BOOL)pInsert block:(NSManagedObjectArchivingBlock)block {
+	NSData *d = [NSManagedObjectArchiver archivedDataWithRootObject:self block:block];
 	return [NSManagedObjectUnarchiver unarchiveObjectWithData:d context:pContext insert:pInsert];
 }
 
