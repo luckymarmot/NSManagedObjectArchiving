@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <CoreData/CoreData.h>
 
 typedef BOOL (^NSManagedObjectArchivingBlock)(NSManagedObject* object, NSString* key);
 
