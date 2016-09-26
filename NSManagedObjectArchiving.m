@@ -1,5 +1,15 @@
 #import "NSManagedObjectArchiving.h"
 
+#if TARGET_OS_IPHONE
+#import <objc/runtime.h>
+#endif
+
+@interface NSObject (LM_AttributeKeys)
+
+@property (nonatomic, copy, readonly) NSArray<NSString*>* LM_attributeKeys;
+
+@end
+
 @interface NSManagedObjectArchiver()
 
 @property (nonatomic, strong) NSMutableDictionary *objects;
@@ -65,7 +75,7 @@
 	[propertyList setObject:entityDescription.versionHash forKey:@"entityVersionHash"];
 	[propertyList setObject:identifier forKey:@"identifier"];
 	
-	NSDictionary* attributesOriginal = [pObject dictionaryWithValuesForKeys:entityDescription.attributeKeys];
+	NSDictionary* attributesOriginal = [pObject dictionaryWithValuesForKeys:entityDescription.LM_attributeKeys];
 	NSMutableDictionary* attributes = [NSMutableDictionary dictionaryWithCapacity:[attributesOriginal count]];
 	[attributesOriginal enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
 		if (!block || block(pObject, key)) {
@@ -232,12 +242,40 @@
 	NSEntityDescription *entity = [NSEntityDescription entityForName:self.entity.name inManagedObjectContext:pContext];
 	Class entityClass = NSClassFromString(entity.managedObjectClassName);
 	NSManagedObject *copy = [[entityClass alloc] initWithEntity:entity insertIntoManagedObjectContext:((pInsert) ? pContext : nil)];
-	[copy setValuesForKeysWithDictionary:[self dictionaryWithValuesForKeys:self.entity.attributeKeys]];
+	[copy setValuesForKeysWithDictionary:[self dictionaryWithValuesForKeys:self.entity.LM_attributeKeys]];
 	return copy;
 }
 - (id)copyIncludingRelationshipsUsingContext:(NSManagedObjectContext *)pContext insert:(BOOL)pInsert block:(NSManagedObjectArchivingBlock)block {
 	NSData *d = [NSManagedObjectArchiver archivedDataWithRootObject:self block:block];
 	return [NSManagedObjectUnarchiver unarchiveObjectWithData:d context:pContext insert:pInsert];
 }
+
+@end
+
+#pragma mark - LM_AttributeKeys
+
+@implementation NSObject (LM_AttributeKeys)
+
+#if TARGET_OS_OSX
+- (NSArray<NSString *> *)LM_attributeKeys
+{
+    return self.attributeKeys;
+}
+#elif TARGET_OS_IPHONE
+- (NSArray<NSString *> *)LM_attributeKeys
+{
+    unsigned count;
+    objc_property_t *properties = class_copyPropertyList([self class], &count);
+    NSMutableArray *rv = [NSMutableArray array];
+    unsigned i;
+    for (i = 0; i < count; i++) {
+        objc_property_t property = properties[i];
+        NSString *name = [NSString stringWithUTF8String:property_getName(property)];
+        [rv addObject:name];
+    }
+    free(properties);
+    return [rv copy];
+}
+#endif
 
 @end
